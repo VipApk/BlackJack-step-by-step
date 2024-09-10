@@ -92,8 +92,10 @@ public:
     vector<Card> hand;
     bool isDealer;
     string playerName;
+    double balance;   
+    double currentBet; 
 
-    Player(bool dealer = false, string name = "Player") : isDealer(dealer), playerName(name) {} 
+    Player(bool dealer = false, string name = "Player", double startBalance = 1000.0) : isDealer(dealer), playerName(name), balance(startBalance), currentBet(0.0) {} 
 
     void takeCard(Card card) {
         hand.push_back(card);
@@ -128,6 +130,25 @@ string getPlayerName() const {
 
     bool isDealerPlayer() const {
         return isDealer;
+}
+void placeBet() {
+    do {
+        cout << playerName << ", you have $" << balance << ". Enter your bet: $";
+        cin >> currentBet;
+        if (currentBet > balance) {
+            cout << "You cannot bet more than your current balance!" << endl;
+        }
+    } while (currentBet > balance);
+
+    balance -= currentBet; 
+}
+void winBet() {
+    balance += currentBet * 2;
+}
+void tieBet() {
+    balance += currentBet;  
+}
+void loseBet() {
 }
 };
 
@@ -196,10 +217,17 @@ void playBlackjack(int numPlayers) {
     Player dealer(true, "Dealer");
 players.insert(players.begin(), dealer);
 
+for (auto& player : players) {
+    if (!player.isDealerPlayer()) {
+        player.placeBet();
+    }
+}
+
 for (auto &player : players) {
         player.takeCard(deck.dealCard());
         player.takeCard(deck.dealCard());
     }
+
     showPlayersHands(players, false);
 
     for (size_t i = 1; i < players.size(); ++i) {  
@@ -243,14 +271,17 @@ for (auto &player : players) {
             cout << player.getPlayerName() << "'s result: ";
             if (playerValue > dealerValue) {
                 cout << "You win!" << endl;
+                player.winBet();
             }
             else if (dealerValue > playerValue) {
                 cout << "Dealer wins!" << endl;
             }
             else {
                 cout << "It's a tie!" << endl;
+                player.tieBet();
             }
         }
+        cout << player.getPlayerName() << "'s new balance: $" << player.balance << endl;
     }
 }
 
