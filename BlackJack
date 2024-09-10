@@ -1,0 +1,80 @@
+#include <iostream>
+#include <vector>
+#include <ctime>
+#include <cstdlib>
+
+using namespace std;
+
+enum Suit { HEARTS, DIAMONDS, CLUBS, SPADES };
+
+class Card {
+public:
+    int value; 
+    Suit suit;
+
+    Card(int v, Suit s) : value(v), suit(s) {}
+
+    void printCard() const {
+        string cardValue;
+        if (value == 1)
+            cardValue = "Ace";
+        else if (value == 11)
+            cardValue = "Jack";
+        else if (value == 12)
+            cardValue = "Queen";
+        else if (value == 13)
+            cardValue = "King";
+        else
+            cardValue = to_string(value);
+
+        string suitName;
+        switch (suit) {
+            case HEARTS: suitName = "Hearts"; break;
+            case DIAMONDS: suitName = "Diamonds"; break;
+            case CLUBS: suitName = "Clubs"; break;
+            case SPADES: suitName = "Spades"; break;
+        }
+
+        cout << cardValue << " of " << suitName << endl;
+    }
+
+    int getBlackjackValue() const {
+        if (value > 10) {
+            return 10;
+        }
+        return value; 
+    }
+};
+
+class Deck {
+private:
+    vector<Card> deck;
+    int currentCardIndex;
+
+public:
+    Deck() {
+        // Initialize a standard 52-card deck
+        for (int suit = HEARTS; suit <= SPADES; ++suit) {
+            for (int value = 1; value <= 13; ++value) {
+                deck.push_back(Card(value, static_cast<Suit>(suit)));
+            }
+        }
+        currentCardIndex = 0;
+        srand(time(0));  // Seed random number generator
+    }
+
+    void shuffleDeck() {
+        for (int i = 0; i < deck.size(); ++i) {
+            int randIndex = rand() % deck.size();
+            swap(deck[i], deck[randIndex]);
+        }
+    }
+
+    Card dealCard() {
+        if (currentCardIndex >= deck.size()) {
+            shuffleDeck();
+            currentCardIndex = 0;
+        }
+        return deck[currentCardIndex++];
+    }
+};
