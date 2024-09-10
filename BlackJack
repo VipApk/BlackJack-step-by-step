@@ -3,6 +3,7 @@
 #include <ctime>
 #include <cstdlib>
 #include <sstream>
+#include <iomanip>
 
 using namespace std;
 
@@ -21,7 +22,7 @@ public:
 
     Card(int v, Suit s) : value(v), suit(s) {}
 
-    void printCard() const {
+    string printCardToString() const {
         string cardValue;
         if (value == 1)
             cardValue = "Ace";
@@ -42,7 +43,7 @@ public:
             case SPADES: suitName = "Spades"; break;
         }
 
-        cout << cardValue << " of " << suitName << endl;
+        return cardValue + " of " + suitName;
     }
 
     int getBlackjackValue() const {
@@ -67,7 +68,7 @@ public:
             }
         }
         currentCardIndex = 0;
-        srand(time(0));  // Seed random number generator
+        srand(time(0));  
     }
 
     void shuffleDeck() {
@@ -87,12 +88,11 @@ public:
 };
 
 class Player {
-private:
+public:
     vector<Card> hand;
     bool isDealer;
     string playerName;
 
-public:
     Player(bool dealer = false, string name = "Player") : isDealer(dealer), playerName(name) {} 
 
     void takeCard(Card card) {
@@ -103,7 +103,7 @@ public:
         int totalValue = 0;
         int aces = 0;
 
-        for (const Card &card : hand) {
+        for (const Card& card : hand) {
             int value = card.getBlackjackValue();
             totalValue += value;
             if (value == 1) {
@@ -119,21 +119,7 @@ public:
         return totalValue;
     }
 
-    void showHand(bool revealAll = true) const {
-        cout << playerName << "'s hand: "  << endl;
-        for (int i = 0; i < hand.size(); ++i) {
-            if (!revealAll && i == 0 && isDealer) {
-                cout << "Hidden card" << endl;
-            } else {
-                hand[i].printCard();
-            }
-        }
-        if (revealAll) {
-            cout << "Total value: " << getHandValue() << endl;
-        }
-    }
-
-    bool isBusted() const {
+bool isBusted() const {
         return getHandValue() > 21;
     }
 string getPlayerName() const {
@@ -144,6 +130,57 @@ string getPlayerName() const {
         return isDealer;
 }
 };
+
+void showPlayersHands(const vector<Player>& players, bool revealDealer = true) {
+    vector<vector<string>> playerHands(players.size());
+    vector<int> handValues(players.size());
+
+    for (size_t i = 0; i < players.size(); ++i) {
+        stringstream ss;
+        for (int j = 0; j < players[i].hand.size(); ++j) {
+            if (!revealDealer && i == 0 && j == 0 && players[i].isDealerPlayer()) {
+                ss << "Hidden card";
+            }
+            else {
+                ss << players[i].hand[j].printCardToString();
+            }
+            playerHands[i].push_back(ss.str());
+            ss.str("");  
+        }
+        handValues[i] = players[i].getHandValue();
+    }
+
+    cout << setw(15) << left << "Cards";
+    for (const auto& player : players) {
+        cout << setw(15) << left << player.getPlayerName();
+    }
+    cout << endl;
+
+    size_t maxHandSize = 0;
+    for (const auto& hand : playerHands) {
+        maxHandSize = max(maxHandSize, hand.size());
+    }
+
+    for (size_t cardIdx = 0; cardIdx < maxHandSize; ++cardIdx) {
+        cout << setw(15) << left << "Card " + to_string(cardIdx + 1);
+        for (size_t playerIdx = 0; playerIdx < players.size(); ++playerIdx) {
+            if (cardIdx < playerHands[playerIdx].size()) {
+                cout << setw(15) << left << playerHands[playerIdx][cardIdx];
+            }
+            else {
+                cout << setw(15) << left << " ";
+            }
+        }
+        cout << endl;
+    }
+
+    cout << setw(15) << left << "Total";
+    for (int value : handValues) {
+        cout << setw(15) << left << value;
+    }
+    cout << endl;
+}
+
 void playBlackjack(int numPlayers) {
     Deck deck;
     deck.shuffleDeck();
@@ -157,58 +194,60 @@ void playBlackjack(int numPlayers) {
     }
 
     Player dealer(true, "Dealer");
+players.insert(players.begin(), dealer);
 
 for (auto &player : players) {
         player.takeCard(deck.dealCard());
         player.takeCard(deck.dealCard());
     }
-    dealer.takeCard(deck.dealCard());
-    dealer.takeCard(deck.dealCard());
+    showPlayersHands(players, false);
 
-for (auto &player : players) {
-        player.showHand();
-    }
-    dealer.showHand(false); 
-
-for (auto &player : players) {
+    for (size_t i = 1; i < players.size(); ++i) {  
+        Player& player = players[i];
         char choice;
         while (true) {
             cout << player.getPlayerName() << ", do you want to hit (h) or stand (s)? ";
             cin >> choice;
             if (choice == 'h') {
                 player.takeCard(deck.dealCard());
-                player.showHand();
+                showPlayersHands(players, false);  
                 if (player.isBusted()) {
                     cout << player.getPlayerName() << " busted!" << endl;
                     break;
                 }
-            } else if (choice == 's') {
+            }
+            else if (choice == 's') {
                 break;
             }
         }
     }
 
-dealer.showHand();
-    while (dealer.getHandValue() < 17) {
+    Player& dealerPlayer = players[0];
+    while (dealerPlayer.getHandValue() < 17) {
         cout << "Dealer hits." << endl;
-        dealer.takeCard(deck.dealCard());
-        dealer.showHand();
-        if (dealer.isBusted()) {
+        dealerPlayer.takeCard(deck.dealCard());
+        showPlayersHands(players, false);  
+        if (dealerPlayer.isBusted()) {
             cout << "Dealer busted! Remaining players win." << endl;
             return;
         }
     }
-for (auto &player : players) {
+
+    showPlayersHands(players, true);
+    for (size_t i = 1; i < players.size(); ++i) {
+        Player& player = players[i];
         if (!player.isBusted()) {
             int playerValue = player.getHandValue();
-            int dealerValue = dealer.getHandValue();
+            int dealerValue = dealerPlayer.getHandValue();
 
             cout << player.getPlayerName() << "'s result: ";
             if (playerValue > dealerValue) {
                 cout << "You win!" << endl;
-            } else if (dealerValue > playerValue) {
+            }
+            else if (dealerValue > playerValue) {
                 cout << "Dealer wins!" << endl;
-            } else {
+            }
+            else {
                 cout << "It's a tie!" << endl;
             }
         }
