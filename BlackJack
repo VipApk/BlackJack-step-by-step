@@ -3,7 +3,7 @@
 #include <ctime>
 #include <cstdlib>
 #include <sstream>
-#include <iomanip>  
+#include <iomanip>
 
 using namespace std;
 
@@ -38,10 +38,10 @@ public:
 
         string suitName;
         switch (suit) {
-            case HEARTS: suitName = "Hearts"; break;
-            case DIAMONDS: suitName = "Diamonds"; break;
-            case CLUBS: suitName = "Clubs"; break;
-            case SPADES: suitName = "Spades"; break;
+        case HEARTS: suitName = "Hearts"; break;
+        case DIAMONDS: suitName = "Diamonds"; break;
+        case CLUBS: suitName = "Clubs"; break;
+        case SPADES: suitName = "Spades"; break;
         }
 
         return cardValue + " of " + suitName;
@@ -68,7 +68,7 @@ public:
             }
         }
         currentCardIndex = 0;
-        srand(time(0));   
+        srand(static_cast<unsigned int>(time(0)));
     }
 
     void shuffleDeck() {
@@ -92,12 +92,13 @@ public:
     vector<Card> hand;
     bool isDealer;
     string playerName;
-    double balance;   
-    double currentBet; 
-    bool eliminated;  
+    double balance;
+    double currentBet;
+    bool eliminated;
+    bool doubledDown;
 
     Player(bool dealer = false, string name = "Player", double startBalance = 1000.0)
-        : isDealer(dealer), playerName(name), balance(startBalance), currentBet(0.0), eliminated(false) {}
+        : isDealer(dealer), playerName(name), balance(startBalance), currentBet(0.0), eliminated(false), doubledDown(false) {}
 
     void takeCard(Card card) {
         hand.push_back(card);
@@ -107,7 +108,7 @@ public:
         int totalValue = 0;
         int aces = 0;
 
-        for (const Card &card : hand) {
+        for (const Card& card : hand) {
             int value = card.getBlackjackValue();
             totalValue += value;
             if (value == 1) {
@@ -143,94 +144,73 @@ public:
         do {
             cout << playerName << ", you have $" << balance << ". Enter your bet: $";
             cin >> currentBet;
-            if (currentBet > balance) {
+            if (cin.fail() || currentBet <= 0) {
+                cin.clear();
+                cin.ignore(numeric_limits<streamsize>::max(), '\n');
+                cout << "Invalid bet amount. Please enter a positive number." << endl;
+                currentBet = 0;
+            }
+            else if (currentBet > balance) {
                 cout << "You cannot bet more than your current balance!" << endl;
             }
-        } while (currentBet > balance);
+        } while (currentBet > balance || currentBet <= 0);
 
-        balance -= currentBet; 
+        balance -= currentBet;
     }
 
     void winBet() {
-        balance += currentBet * 2;  
+        balance += currentBet * (doubledDown ? 2 : 1);
+        doubledDown = false;
     }
 
     void tieBet() {
-        balance += currentBet;  
+        balance += currentBet;
+        doubledDown = false;
     }
 
     void loseBet() {
-
         if (balance <= 0) {
             eliminated = true;
             cout << playerName << " has been eliminated from the game!" << endl;
         }
+        doubledDown = false;
     }
 
     void resetHand() {
         hand.clear();
         currentBet = 0;
+        doubledDown = false;
     }
 };
 
-
 void showPlayersHands(const vector<Player>& players, bool revealDealer = true) {
-    vector<vector<string>> playerHands(players.size());
-    vector<int> handValues(players.size());
-
-   
-    for (size_t i = 0; i < players.size(); ++i) {
-        if (players[i].eliminated) continue;
-        stringstream ss;
-        for (int j = 0; j < players[i].hand.size(); ++j) {
-            if (!revealDealer && i == 0 && j == 0 && players[i].isDealerPlayer()) {
-                ss << "Hidden card";
-            } else {
-                ss << players[i].hand[j].printCardToString();
-            }
-            playerHands[i].push_back(ss.str());
-            ss.str(""); 
-        }
-        handValues[i] = players[i].getHandValue();
-    }
-
-   
-    cout << setw(15) << left << "Cards";
+    cout << string(60, '-') << endl;
     for (const auto& player : players) {
-        if (!player.eliminated)
-            cout << setw(15) << left << player.getPlayerName();
-    }
-    cout << endl;
+        if (player.eliminated) continue;
 
-    
-    size_t maxHandSize = 0;
-    for (const auto& hand : playerHands) {
-        maxHandSize = max(maxHandSize, hand.size());
-    }
+        cout << setw(20) << left << player.getPlayerName() << endl;
 
-   
-    for (size_t cardIdx = 0; cardIdx < maxHandSize; ++cardIdx) {
-        cout << setw(15) << left << "Card " + to_string(cardIdx + 1);
-        for (size_t playerIdx = 0; playerIdx < players.size(); ++playerIdx) {
-            if (players[playerIdx].eliminated) continue;
-            if (cardIdx < playerHands[playerIdx].size()) {
-                cout << setw(15) << left << playerHands[playerIdx][cardIdx];
-            } else {
-                cout << setw(15) << left << " ";
+
+        for (size_t j = 0; j < player.hand.size(); ++j) {
+            if (j == 0 && player.isDealerPlayer() && !revealDealer) {
+                cout << setw(20) << left << "Hidden Card" << endl;
+            }
+            else {
+                cout << setw(20) << left << player.hand[j].printCardToString() << endl;
             }
         }
-        cout << endl;
-    }
 
-  
-    cout << setw(15) << left << "Total";
-    for (size_t playerIdx = 0; playerIdx < players.size(); ++playerIdx) {
-        if (!players[playerIdx].eliminated)
-            cout << setw(15) << left << handValues[playerIdx];
+
+        if (!(player.isDealerPlayer() && !revealDealer)) {
+            cout << setw(20) << left << "Total: " << player.getHandValue() << endl;
+        }
+        else {
+            cout << setw(20) << left << "Total: ???" << endl;
+        }
+
+        cout << string(60, '-') << endl;
     }
-    cout << endl;
 }
-
 
 bool isGameOver(const vector<Player>& players) {
     int activePlayers = 0;
@@ -242,36 +222,31 @@ bool isGameOver(const vector<Player>& players) {
     return activePlayers <= 1;
 }
 
-
 void playBlackjackRound(vector<Player>& players, Deck& deck) {
-   
-    for (auto &player : players) {
+    for (auto& player : players) {
         if (!player.isDealerPlayer() && !player.eliminated) {
             player.placeBet();
         }
     }
 
-   
-    for (auto &player : players) {
-        if (!player.eliminated) {
-            player.resetHand();
-            player.takeCard(deck.dealCard());
-            player.takeCard(deck.dealCard());
-        }
+    for (auto& player : players) {
+        if (player.eliminated) continue;
+        player.resetHand();
+        player.takeCard(deck.dealCard());
+        player.takeCard(deck.dealCard());
     }
 
-    
     showPlayersHands(players, false);
 
-    
-    for (size_t i = 1; i < players.size(); ++i) { 
-        Player &player = players[i];
+    for (size_t i = 1; i < players.size(); ++i) {
+        Player& player = players[i];
         if (player.eliminated) continue;
 
-        char choice;
         while (true) {
-            cout << player.getPlayerName() << ", do you want to hit (h) or stand (s)? ";
+            char choice;
+            cout << player.getPlayerName() << ", do you want to (h)it, (s)tand, or (d)ouble down? ";
             cin >> choice;
+
             if (choice == 'h') {
                 player.takeCard(deck.dealCard());
                 showPlayersHands(players, false);
@@ -280,91 +255,102 @@ void playBlackjackRound(vector<Player>& players, Deck& deck) {
                     player.loseBet();
                     break;
                 }
-            } else if (choice == 's') {
+            }
+            else if (choice == 's') {
                 break;
             }
-        }
-    }
-
-  
-    Player &dealer = players[0];
-    cout << "Dealer's turn." << endl;
-    while (dealer.getHandValue() < 17) {
-        cout << "Dealer hits." << endl;
-        dealer.takeCard(deck.dealCard());
-        showPlayersHands(players, false);
-        if (dealer.isBusted()) {
-            cout << "Dealer busted!" << endl;
-            break;
-        }
-    }
-
-   
-    showPlayersHands(players, true);
-
- 
-    for (size_t i = 1; i < players.size(); ++i) {
-        Player &player = players[i];
-        if (!player.eliminated && !player.isBusted()) {
-            int playerValue = player.getHandValue();
-            int dealerValue = dealer.getHandValue();
-
-            cout << player.getPlayerName() << "'s result: ";
-            if (dealer.isBusted() || playerValue > dealerValue) {
-                cout << "You win!" << endl;
-                player.winBet();
-            } else if (playerValue < dealerValue) {
-                cout << "Dealer wins!" << endl;
-                player.loseBet();
-            } else {
-                cout << "It's a tie!" << endl;
-                player.tieBet();
+            else if (choice == 'd') {
+                if (player.balance >= player.currentBet) {
+                    player.balance -= player.currentBet;
+                    player.currentBet *= 2;
+                    player.takeCard(deck.dealCard());
+                    showPlayersHands(players, false);
+                    if (player.isBusted()) {
+                        cout << player.getPlayerName() << " busted!" << endl;
+                        player.loseBet();
+                    }
+                    break;
+                }
+                else {
+                    cout << "Not enough balance to double down!" << endl;
+                }
+            }
+            else {
+                cout << "Invalid choice. Please enter 'h', 's', or 'd'." << endl;
             }
         }
-        cout << player.getPlayerName() << "'s new balance: $" << player.balance << endl;
+    }
+
+    cout << "Dealer's turn." << endl;
+    Player& dealer = players[0];
+    while (dealer.getHandValue() < 17) {
+        dealer.takeCard(deck.dealCard());
+    }
+    showPlayersHands(players, true);
+
+    for (size_t i = 1; i < players.size(); ++i) {
+        Player& player = players[i];
+        if (player.eliminated) continue;
+
+        if (player.isBusted()) {
+
+            continue;
+        }
+        else if (dealer.isBusted() || player.getHandValue() > dealer.getHandValue()) {
+            cout << player.getPlayerName() << " wins!" << endl;
+            player.winBet();
+        }
+        else if (player.getHandValue() < dealer.getHandValue()) {
+            cout << player.getPlayerName() << " loses." << endl;
+            player.loseBet();
+        }
+        else {
+            cout << "It's a tie for " << player.getPlayerName() << "!" << endl;
+            player.tieBet();
+        }
+    }
+
+    for (auto& player : players) {
+        if (player.eliminated) continue;
+        cout << player.getPlayerName() << " has a balance of $" << player.balance << endl;
     }
 }
 
-void playBlackjack(int numPlayers) {
+void playBlackjack() {
     Deck deck;
     deck.shuffleDeck();
 
     vector<Player> players;
-    players.push_back(Player(true, "Dealer", 0)); 
+    int numPlayers;
 
-    for (int i = 1; i <= numPlayers; ++i) {
-        string playerName;
-        cout << "Enter name for player " << i << ": ";
+    cout << "Welcome to Blackjack!" << endl;
+    cout << "Enter the number of players (1-6): ";
+    cin >> numPlayers;
+    if (numPlayers < 1 || numPlayers > 6) {
+        cout << "Invalid number of players. Defaulting to 1 player." << endl;
+        numPlayers = 1;
+    }
+
+    string playerName;
+    cout << "Enter your name: ";
+    cin >> playerName;
+    players.push_back(Player(true, "Dealer"));
+    players.push_back(Player(false, playerName));
+
+    for (int i = 1; i < numPlayers; ++i) {
+        cout << "Enter player " << (i + 1) << " name: ";
         cin >> playerName;
         players.push_back(Player(false, playerName));
     }
 
- 
     while (!isGameOver(players)) {
-        cout << "\n=== New Round ===\n";
         playBlackjackRound(players, deck);
     }
 
-
-    for (const auto &player : players) {
-        if (!player.isDealerPlayer() && player.balance > 0) {
-            cout << player.getPlayerName() << " is the winner with $" << player.balance << "!" << endl;
-            break;
-        }
-    }
+    cout << "Game over! Thanks for playing!" << endl;
 }
 
 int main() {
-    cout << "Welcome to Blackjack!" << endl;
-    cout << "Press Enter to start..." << endl;
-    cin.ignore();
-    cin.get();
-
-    int numPlayers;
-    cout << "Enter the number of players: ";
-    cin >> numPlayers;
-
-    playBlackjack(numPlayers);
-
+    playBlackjack();
     return 0;
 }
